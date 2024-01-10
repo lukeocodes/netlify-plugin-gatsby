@@ -2,10 +2,7 @@ import { existsSync } from 'fs'
 import path from 'path'
 import process from 'process'
 
-import {
-  match as reachRouterMatch,
-  matchPath as reachRouterMatchPath,
-} from '@gatsbyjs/reach-router'
+import { match as reachMatch } from '@gatsbyjs/reach-router'
 import { HandlerEvent } from '@netlify/functions'
 import bodyParser from 'co-body'
 import multer from 'multer'
@@ -16,11 +13,6 @@ import {
   AugmentedGatsbyFunctionRequest,
 } from './utils'
 
-/**
- * Depending on the version of '@gatsbyjs/reach-router' installed, the 'match' method may not be defined.
- * This check ensures that this continues to work as expected between v1 and v2 of the package.
- */
-const reachMatch = reachRouterMatch || reachRouterMatchPath
 const parseForm = multer().any()
 type MulterReq = Parameters<typeof parseForm>[0]
 type MulterRes = Parameters<typeof parseForm>[1]
