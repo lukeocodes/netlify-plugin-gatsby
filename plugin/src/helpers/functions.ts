@@ -1,12 +1,80 @@
+/* eslint-disable max-lines */
 import { NetlifyConfig, NetlifyPluginConstants } from '@netlify/build'
-import { copy, copyFile, ensureDir, existsSync, rm, writeFile } from 'fs-extra'
-import { resolve, join, relative } from 'pathe'
+import { copy, ensureDir, existsSync, rm, writeFile, readFile } from 'fs-extra'
+import { resolve, join, relative, dirname } from 'pathe'
 
 import { makeApiHandler, makeHandler } from '../templates/handlers'
 
 import { getGatsbyRoot } from './config'
 
 export type FunctionList = Array<'API' | 'SSR' | 'DSG'>
+
+/**
+ * Adjust package imports in functions we produce to be relative. Those imported packages should always be dependencies
+ * of `@netlify/plugin-gatsby` and we can't rely on those imports being resolvable by accident (i.e. npm hoisting deps
+ * of this plugin in root node_modules)
+ */
+export const adjustRequiresToRelative = (
+  template: string,
+  outputLocation: string,
+): string =>
+  // built files use CJS so targeting require here despite source files using ESM
+  template.replace(/require\(["'`]([^"'`]+)["'`]\)/g, (match, request) => {
+    if (request.startsWith('.')) {
+      return match
+    }
+
+    const absolutePath = require.resolve(request)
+    if (absolutePath === request) {
+      // for builtins path will be the same as request
+      return match
+    }
+    const relativePath = `./${relative(dirname(outputLocation), absolutePath)}`
+    return `require('${relativePath}')`
+  })
+
+const adjustFilesRequiresToRelative = async (
+  filesToAdjustRequires: Set<string>,
+) => {
+  for (const file of filesToAdjustRequires) {
+    await writeFile(
+      file,
+      adjustRequiresToRelative(await readFile(file, 'utf8'), file),
+    )
+  }
+}
+
+const writeFileWithRelativeRequires = (
+  outputPath: string,
+  source: string,
+): Promise<void> =>
+  writeFile(outputPath, adjustRequiresToRelative(source, outputPath))
+
+const copyWithRelativeRequires = async (
+  src: string,
+  dest: string,
+): Promise<void> => {
+  const filesToAdjustRequires = new Set<string>()
+  await copy(src, dest, {
+    filter: (_filterSrc, filterDest) => {
+      if (/\.[cm]?js$/.test(filterDest)) {
+        filesToAdjustRequires.add(filterDest)
+      }
+      return true
+    },
+  })
+  await adjustFilesRequiresToRelative(filesToAdjustRequires)
+}
+
+const writeApiFunction = async ({ appDir, functionDir }) => {
+  const source = makeApiHandler(appDir)
+  // This is to ensure we're copying from the compiled js, not ts source
+  await copyWithRelativeRequires(
+    join(__dirname, '..', '..', 'lib', 'templates', 'api'),
+    functionDir,
+  )
+  await writeFileWithRelativeRequires(join(functionDir, '__api.js'), source)
+}
 
 const writeFunction = async ({
   renderMode,
@@ -16,21 +84,14 @@ const writeFunction = async ({
 }) => {
   const source = makeHandler(appDir, renderMode)
   await ensureDir(join(functionsSrc, handlerName))
-  await writeFile(join(functionsSrc, handlerName, `${handlerName}.js`), source)
-  await copyFile(
+  await writeFileWithRelativeRequires(
+    join(functionsSrc, handlerName, `${handlerName}.js`),
+    source,
+  )
+  await copyWithRelativeRequires(
     join(__dirname, '..', '..', 'lib', 'templates', 'utils.js'),
     join(functionsSrc, handlerName, 'utils.js'),
   )
-}
-
-const writeApiFunction = async ({ appDir, functionDir }) => {
-  const source = makeApiHandler(appDir)
-  // This is to ensure we're copying from the compiled js, not ts source
-  await copy(
-    join(__dirname, '..', '..', 'lib', 'templates', 'api'),
-    functionDir,
-  )
-  await writeFile(join(functionDir, '__api.js'), source)
 }
 
 export const writeFunctions = async ({
@@ -92,13 +153,13 @@ export const setupImageCdn = async ({
 
   await ensureDir(constants.INTERNAL_FUNCTIONS_SRC)
 
-  await copyFile(
+  await copyWithRelativeRequires(
     join(__dirname, '..', '..', 'src', 'templates', 'ipx.ts'),
     join(constants.INTERNAL_FUNCTIONS_SRC, '_ipx.ts'),
   )
 
   if (NETLIFY_IMAGE_CDN === `true`) {
-    await copyFile(
+    await copyWithRelativeRequires(
       join(__dirname, '..', '..', 'src', 'templates', 'image.ts'),
       join(constants.INTERNAL_FUNCTIONS_SRC, '__image.ts'),
     )
@@ -169,3 +230,4 @@ export const deleteFunctions = async ({
     }
   }
 }
+/* eslint-enable max-lines */

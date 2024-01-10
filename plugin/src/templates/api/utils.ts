@@ -10,8 +10,7 @@ import {
   HandlerContext,
 } from '@netlify/functions'
 import cookie from 'cookie'
-import type { GatsbyFunctionResponse } from 'gatsby'
-import { GatsbyFunctionRequest } from 'gatsby'
+import type { GatsbyFunctionRequest, GatsbyFunctionResponse } from 'gatsby'
 import fetch, { Headers } from 'node-fetch'
 import statuses from 'statuses'
 

@@ -258,7 +258,7 @@ export function mutateConfig({
   if (neededFunctions.includes('API')) {
     netlifyConfig.functions.__api = {
       included_files: [posix.join(cacheDir, 'functions', '**')],
-      external_node_modules: ['msgpackr-extract'],
+      node_bundler: 'nft',
     }
   }
 
