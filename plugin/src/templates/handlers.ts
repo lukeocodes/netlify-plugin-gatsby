@@ -39,6 +39,8 @@ export type RenderMode = 'SSR' | 'DSG'
  * the actual handler code, with the correct paths and render mode injected.
  */
 const getHandler = (renderMode: RenderMode, appDir: string): Handler => {
+  console.log({ appDir, cwd: process.cwd() })
+
   process.chdir(appDir)
 
   const DATA_SUFFIX = '/page-data.json'
@@ -166,6 +168,7 @@ export const makeHandler = (appDir: string, renderMode: RenderMode): string =>
     const { join, resolve } = require("path");
     const etag = require('etag');
     const pageRoot = resolve(__dirname, "${appDir}");
+    console.log('before', { appDir: "${appDir}", pageRoot, d: __dirname})
     exports.handler = ${
       renderMode === 'DSG'
         ? `builder((${getHandler.toString()})("${renderMode}", pageRoot))`
