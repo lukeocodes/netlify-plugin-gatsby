@@ -13,6 +13,10 @@ describe('A site using gatsby version with adapters', () => {
     // in CI warnings are outputted to stderr (yikes)
     const fullOutput = stdout + stderr
 
+    if (!success) {
+      console.error(fullOutput)
+    }
+
     expect(success).toBeTruthy()
 
     expect(fullOutput).toContain(

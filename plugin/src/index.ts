@@ -27,7 +27,7 @@ export async function onPreBuild({
   constants,
   utils,
   netlifyConfig,
-}): Promise<void> {
+}: NetlifyPluginOptions): Promise<void> {
   const { PUBLISH_DIR } = constants
   // Print a helpful message if the publish dir is misconfigured
   if (!PUBLISH_DIR || process.cwd() === path.resolve(PUBLISH_DIR)) {
@@ -115,13 +115,10 @@ The plugin no longer uses this and it should be deleted to avoid conflicts.\n`)
 
 export async function onPostBuild({
   constants: { PUBLISH_DIR, FUNCTIONS_DIST },
-  utils,
-}): Promise<void> {
+}: NetlifyPluginOptions): Promise<void> {
   if (shouldSkip(PUBLISH_DIR)) {
     return
   }
-
-  await saveCache({ publish: PUBLISH_DIR, utils })
 
   const cacheDir = normalizedCacheDir(PUBLISH_DIR)
 
@@ -132,10 +129,15 @@ export async function onPostBuild({
   }
 }
 
-export async function onSuccess({ constants: { PUBLISH_DIR } }) {
+export async function onSuccess({
+  constants: { PUBLISH_DIR },
+  utils,
+}: NetlifyPluginOptions) {
   if (shouldSkip(PUBLISH_DIR)) {
     return
   }
+
+  await saveCache({ publish: PUBLISH_DIR, utils })
 
   // Pre-warm the lambdas as downloading the datastore file can take a while
   if (shouldSkipBundlingDatastore()) {
